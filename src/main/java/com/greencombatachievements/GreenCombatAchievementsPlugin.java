@@ -38,6 +38,10 @@ import net.runelite.client.plugins.PluginDescriptor;
 public class GreenCombatAchievementsPlugin extends Plugin
 {
 	private static final int COMPLETE_COLOR = 0x0DC10D;
+	// The Monster filter dropdown alphabetizes "The X" bosses as "X, The", while
+	// the Bosses grid and CA overview use the natural "The X" order. Both sides
+	// are normalized to the natural order before being used as a map key.
+	private static final String ALPHABETIZED_THE_SUFFIX = ", The";
 	private static final File SAVE_DIR = new File(RuneLite.RUNELITE_DIR, "green-combat-achievements");
 	private static final File SAVE_FILE = new File(SAVE_DIR, "completion.json");
 	private static final Type PROFILE_MAP_TYPE = new TypeToken<Map<String, ProfileData>>()
@@ -174,11 +178,20 @@ public class GreenCombatAchievementsPlugin extends Plugin
 
 	private void put(Map<String, Boolean> map, String key, boolean value)
 	{
-		Boolean previous = map.put(key, value);
+		Boolean previous = map.put(normalizeName(key), value);
 		if (previous == null || previous != value)
 		{
 			dirty = true;
 		}
+	}
+
+	private static String normalizeName(String name)
+	{
+		if (name.endsWith(ALPHABETIZED_THE_SUFFIX))
+		{
+			return "The " + name.substring(0, name.length() - ALPHABETIZED_THE_SUFFIX.length());
+		}
+		return name;
 	}
 
 	private void notifyIfDataMissing()
@@ -209,7 +222,7 @@ public class GreenCombatAchievementsPlugin extends Plugin
 		for (Widget entry : dropdown.getDynamicChildren())
 		{
 			String name = entry.getText();
-			if (name != null && Boolean.TRUE.equals(completion.get(name)))
+			if (name != null && !name.isEmpty() && Boolean.TRUE.equals(completion.get(normalizeName(name))))
 			{
 				entry.setTextColor(COMPLETE_COLOR);
 			}
