@@ -1,6 +1,5 @@
 package com.greencombatachievements;
 
-import com.google.inject.Provides;
 import java.util.HashMap;
 import java.util.Map;
 import javax.inject.Inject;
@@ -12,7 +11,6 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.widgets.Widget;
-import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -23,13 +21,10 @@ import net.runelite.client.plugins.PluginDescriptor;
 )
 public class GreenCombatAchievementsPlugin extends Plugin
 {
-	private static final int STOCK_COMPLETE_COLOR = 0x0DC10D;
+	private static final int COMPLETE_COLOR = 0x0DC10D;
 
 	@Inject
 	private Client client;
-
-	@Inject
-	private GreenCombatAchievementsConfig config;
 
 	private final Map<String, Boolean> bossCompletion = new HashMap<>();
 	private boolean hasNotifiedMissingData;
@@ -61,6 +56,7 @@ public class GreenCombatAchievementsPlugin extends Plugin
 	public void onGameTick(GameTick gameTick)
 	{
 		captureBossCompletion();
+		notifyIfDataMissing();
 		highlightMonsterDropdown();
 	}
 
@@ -80,8 +76,25 @@ public class GreenCombatAchievementsPlugin extends Plugin
 				continue;
 			}
 
-			bossCompletion.put(name, bossName.getTextColor() == STOCK_COMPLETE_COLOR);
+			bossCompletion.put(name, bossName.getTextColor() == COMPLETE_COLOR);
 		}
+	}
+
+	private void notifyIfDataMissing()
+	{
+		if (hasNotifiedMissingData || !bossCompletion.isEmpty())
+		{
+			return;
+		}
+
+		Widget caFrame = client.getWidget(InterfaceID.CaTasks.FRAME);
+		if (caFrame == null || caFrame.isHidden())
+		{
+			return;
+		}
+
+		client.addChatMessage(ChatMessageType.CONSOLE, "", "Green Combat Achievements: open the Bosses menu once so completed bosses can be highlighted.", null);
+		hasNotifiedMissingData = true;
 	}
 
 	private void highlightMonsterDropdown()
@@ -92,37 +105,13 @@ public class GreenCombatAchievementsPlugin extends Plugin
 			return;
 		}
 
-		if (bossCompletion.isEmpty())
-		{
-			notifyMissingData();
-			return;
-		}
-
-		int highlightColor = config.highlightColor().getRGB() & 0xFFFFFF;
 		for (Widget entry : dropdown.getDynamicChildren())
 		{
 			String name = entry.getText();
 			if (name != null && Boolean.TRUE.equals(bossCompletion.get(name)))
 			{
-				entry.setTextColor(highlightColor);
+				entry.setTextColor(COMPLETE_COLOR);
 			}
 		}
-	}
-
-	private void notifyMissingData()
-	{
-		if (hasNotifiedMissingData)
-		{
-			return;
-		}
-
-		client.addChatMessage(ChatMessageType.CONSOLE, "", "Green Combat Achievements: open the Combat Achievements Bosses menu once so completed bosses can be highlighted.", null);
-		hasNotifiedMissingData = true;
-	}
-
-	@Provides
-	GreenCombatAchievementsConfig provideConfig(ConfigManager configManager)
-	{
-		return configManager.getConfig(GreenCombatAchievementsConfig.class);
 	}
 }
